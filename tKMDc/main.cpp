@@ -1,6 +1,6 @@
-﻿#include <Windows.h>
-#include <stdio.h>
+﻿#include <stdio.h>
 #include <stdlib.h>
+#include "win32.hpp"
 #include "../tKMD/ioctl.h"
 
 void PrintCallbackInfo(CALLBACK_INFO callbacks[]);
@@ -34,7 +34,8 @@ int main(int argc, char * argv[])
 			"3: LIST THREADNOTIFY CALLBACKS\n\t"
 			"4: LIST IMAGENOTIFY CALLBACKS\n\t"
 			"5: DISABLE CALLBACK <PVOID:address>\n\t"
-			"6: REMOVE_PS_PROTECTION <int:PID>\n");
+			"6: REMOVE_PS_PROTECTION FROM <int:PID>\n\t"
+			"7: LIST KERNEL OBJECTS OF <int:PID>\n\t");
 		return 1;
 	}
 
@@ -151,6 +152,16 @@ int main(int argc, char * argv[])
 			printf("[-] error: 0x%d\n", GetLastError());
 		}
 		break;
+	}
+	case 7: //LIST KERNEL OBJECTS VIA PROCESS HANDLES
+	{
+		if (argc < 3)
+		{
+			printf("[-] PID to be provided\n");
+			exit(1);
+		}
+
+		listAllKernelObjectsViaHandles(atoi(argv[2]));
 	}
 	}
 	CloseHandle(hDriver);
