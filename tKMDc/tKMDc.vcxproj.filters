@@ -27,7 +27,7 @@
     <Text Include="readme.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="win32.hpp">
+    <ClInclude Include="userland.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

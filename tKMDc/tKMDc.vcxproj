@@ -111,7 +111,7 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="win32.hpp" />
+    <ClInclude Include="userland.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

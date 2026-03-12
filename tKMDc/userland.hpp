@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <fileapi.h>
+#include <Psapi.h>
 
 #define SystemHandleInformation 16
 #define STATUS_INFO_LENGTH_MISMATCH 0xc0000004
@@ -29,7 +30,7 @@ typedef struct _PUBLIC_OBJECT_BASIC_INFORMATION {
     ACCESS_MASK GrantedAccess;
     ULONG HandleCount;
     ULONG PointerCount;
-    ULONG Reserved[10];    // reserved for internal use
+    ULONG Reserved[10];    
 } PUBLIC_OBJECT_BASIC_INFORMATION, * PPUBLIC_OBJECT_BASIC_INFORMATION;
 
 typedef NTSTATUS(NTAPI* fNtQueryObject)
@@ -194,5 +195,31 @@ BOOL listAllKernelObjectsViaHandles(DWORD pid)
     }
     free(handleInfo);
     
+    return status;
+}
+
+BOOL listAllKernelDrivers()
+{
+
+    NTSTATUS status;
+    
+    LPVOID drivers[1024];
+    DWORD cbNeeded;
+    int cDrivers = 0;
+
+    if (EnumDeviceDrivers(drivers, sizeof(drivers), &cbNeeded) && cbNeeded < sizeof(drivers))
+    {
+        WCHAR szDriver[1024];
+        cDrivers = cbNeeded / sizeof(drivers[0]);
+        for (int i = 0; i < cDrivers; i++)
+        {
+            if (GetDeviceDriverFileName(drivers[i], szDriver, sizeof(szDriver) / sizeof(szDriver[0])))
+            {
+                wprintf(L"[+]%d: %s\n", i + 1, szDriver);
+            }
+        }
+    }
+    printf("%d drivers detected\n", cDrivers);          
+
     return status;
 }
