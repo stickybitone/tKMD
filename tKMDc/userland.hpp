@@ -200,7 +200,6 @@ BOOL listAllKernelObjectsViaHandles(DWORD pid)
 
 BOOL listAllKernelDrivers()
 {
-
     NTSTATUS status;
     
     LPVOID drivers[1024];

