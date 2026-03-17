@@ -421,6 +421,26 @@ NTSTATUS DeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp)
 
 		break;
 	}
+	case IOCTL_LIST_ETW:
+	{
+		DbgPrint("in the IOCTL_LIST_ETW\n");
+
+		PETW etw = (PETW)stack->Parameters.DeviceIoControl.Type3InputBuffer;
+		etw->SiloDriverState = (DWORD64*)((UCHAR*)etw->EtwpDebuggerDataAddr + 0x18);
+		DbgPrint("retrieved SiloDriverState Address: 0x%p\n", etw->SiloDriverState);
+		DWORD64 * etwHashBucket = (DWORD64*)((UCHAR*)*etw->SiloDriverState + 0x2d0);
+		DbgPrint("retrieved ETW_HASH_BUCKET init address: 0x%p\n", etwHashBucket);
+		//retrieve ETW_HASH_BUCKETs
+		//todo: no hardcoded offsets 
+		//_ETW_HASH_TABLE 0x2d0 offset for Build 10.0.26200
+		_ETW_HASH_BUCKET * bucket;
+		for (int i = 0; i < 64; i++)
+		{
+			bucket = (_ETW_HASH_BUCKET*)((UCHAR*)etwHashBucket + (i * sizeof(_ETW_HASH_BUCKET))); 
+			DbgPrint("[+] bucket [%d] @ 0x%p -> Flink @ 0x%p\n", i, bucket, bucket->ListHead->Flink);
+		}
+		break;
+	}
 	default:
 	{
 		status = STATUS_INVALID_DEVICE_REQUEST;

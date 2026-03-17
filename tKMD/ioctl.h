@@ -17,6 +17,7 @@
 #define IOCTL_SUPPORTED_VERSION CTL_CODE(tKMD_DEVICE, 0x807, METHOD_NEITHER, FILE_ANY_ACCESS)
 #define IOCTL_SET_FULL_PRIVS_ON_KERNEL_OBJECT CTL_CODE(tKMD_DEVICE, 0x808, METHOD_NEITHER, FILE_ANY_ACCESS)
 #define IOCTL_BORROW_TOKEN CTL_CODE(tKMD_DEVICE, 0x80a, METHOD_NEITHER, FILE_ANY_ACCESS)
+#define IOCTL_LIST_ETW CTL_CODE(tKMD_DEVICE, 0x80b, METHOD_NEITHER, FILE_ANY_ACCESS)
 
 typedef struct _MODULE_NAMES
 {
@@ -73,3 +74,80 @@ typedef struct _OFFSET
     ULONG IMAGE_NOTIFY_OFFSET;
     ULONG PS_PROTECTION_OFFSET;
 } OFFSET, * POFFSET;
+
+//START ETW 
+
+typedef struct _ETW
+{
+    DWORD64 EtwpDebuggerDataAddr;
+    DWORD64 * SiloDriverState;
+} ETW, * PETW;
+
+
+struct _EX_PUSH_LOCK
+{
+    union
+    {
+        struct
+        {
+            ULONGLONG Locked : 1;                                             //0x0
+            ULONGLONG Waiting : 1;                                            //0x0
+            ULONGLONG Waking : 1;                                             //0x0
+            ULONGLONG MultipleShared : 1;                                     //0x0
+            ULONGLONG Shared : 60;                                            //0x0
+        } explstruct;
+        ULONGLONG Value;                                                    //0x0
+        VOID* Ptr;                                                          //0x0
+    };
+};
+
+struct _ETW_HASH_BUCKET
+{
+    struct _LIST_ENTRY ListHead[3];                                         //0x0
+    struct _EX_PUSH_LOCK BucketLock;                                        //0x30
+};
+
+struct _ETW_LAST_ENABLE_INFO
+{
+    union _LARGE_INTEGER EnableFlags;                                       //0x0
+    USHORT LoggerId;                                                        //0x8
+    UCHAR Level;                                                            //0xa
+    UCHAR Enabled : 1;                                                        //0xb
+    UCHAR InternalFlag : 7;                                                   //0xb
+};
+
+struct _TRACE_ENABLE_INFO
+{
+    ULONG IsEnabled;                                                        //0x0
+    UCHAR Level;                                                            //0x4
+    UCHAR Reserved1;                                                        //0x5
+    USHORT LoggerId;                                                        //0x6
+    ULONG EnableProperty;                                                   //0x8
+    ULONG Reserved2;                                                        //0xc
+    ULONGLONG MatchAnyKeyword;                                              //0x10
+    ULONGLONG MatchAllKeyword;                                              //0x18
+};
+
+struct _ETW_GUID_ENTRY
+{
+    struct _LIST_ENTRY GuidList;                                            //0x0
+    struct _LIST_ENTRY SiloGuidList;                                        //0x10
+    volatile LONGLONG RefCount;                                             //0x20
+    struct _GUID Guid;                                                      //0x28
+    struct _LIST_ENTRY RegListHead;                                         //0x38
+    VOID* SecurityDescriptor;                                               //0x48
+    union
+    {
+        struct _ETW_LAST_ENABLE_INFO LastEnable;                            //0x50
+        ULONGLONG MatchId;                                                  //0x50
+    };
+    struct _TRACE_ENABLE_INFO ProviderEnableInfo;                           //0x60
+    struct _TRACE_ENABLE_INFO EnableInfo[8];                                //0x80
+    struct _ETW_FILTER_HEADER* FilterData;                                  //0x180
+    struct _ETW_SILODRIVERSTATE* SiloState;                                 //0x188
+    struct _ETW_GUID_ENTRY* HostEntry;                                      //0x190
+    struct _EX_PUSH_LOCK Lock;                                              //0x198
+    struct _ETHREAD* LockOwner;                                             //0x1a0
+};
+
+//END ETW

@@ -27,6 +27,7 @@ int main(int argc, char * argv[])
 			"8: (RING 0) SET FULL PRIVS ON <int:PID> <hex:handleID>\n\t"
 			"9: (RING 3) LIST KERNEL MODULES\n\t"
 			"10: (RING 0) BORROW A TOKEN FOR <int:PID> FROM <int:PID>\n\t"
+			"11: (RING 0) LIST ALL ACTIVE ETWs\n\t"
 		);
 		return 1;
 	}
@@ -44,6 +45,7 @@ int main(int argc, char * argv[])
 			{
 				printf("Current Windows Version: %lu.%lu.%lu\n", version.MajorVersion, version.MinorVersion, version.BuildNumber);
 			}
+			break;
 		}
 		case 1: //LIST KERNEL MODULES
 		{
@@ -228,6 +230,58 @@ int main(int argc, char * argv[])
 			{
 				printf("[-] error: 0x%d\n", GetLastError());
 			}
+			break;
+		}
+		case 11: //LIST ALL ACTIVE ETWs
+		{
+			HMODULE Ntoskrnl;
+			Ntoskrnl = LoadLibrary(L"ntoskrnl.exe");//LoadLibraryEx(L"ntkrnlmp.exe", NULL, DONT_RESOLVE_DLL_REFERENCES);
+			//__debugbreak();
+			if (Ntoskrnl)
+			{
+				printf("[*] Local copy of NTOS @ 0x%llX\n", Ntoskrnl);
+			}
+			//find EtwpDebuggerData fingerprint in the module
+			BYTE EtwDbgFingerprint[] = { 0x2c, 0x08, 0x04, 0x38, 0x0c, 0xe8 };
+			DWORD64 Location = 0;
+			DWORD64* StartAddr = (DWORD64*)Ntoskrnl;
+
+			DWORD RegionSize = 0x1000000; //lower in older versions and possibly bigger in newer version
+
+			BYTE* address = (BYTE*)StartAddr;
+			for (int i = 0; i < RegionSize; i++)
+			{
+				if (!memcmp(&address[i], EtwDbgFingerprint, sizeof(EtwDbgFingerprint)))
+				{
+					Location = (DWORD64)&address[i] - 2;
+					printf("[+] Found location of EtwpDebugerData: 0x%p\n", Location);
+				}
+			}
+			// calculate address of EtwpDebuggerData in kernel memory
+			DWORD64 kernelAddress;
+			LPVOID ImageBase[1000];
+			DWORD cbNeeded = 0;
+			EnumDeviceDrivers(ImageBase, sizeof(ImageBase), &cbNeeded);
+			kernelAddress = (DWORD64)ImageBase[0];
+			printf("[*] Original NTOS loaded @ 0x%llX\n", kernelAddress );
+			DWORD64 EtwDbg_RVA = Location - (DWORD64)Ntoskrnl;
+			DWORD64 EtwpDebuggerDataAddr = kernelAddress + EtwDbg_RVA;
+			printf("[+] Found original locatiion of EtwpDebuggerData: 0x%p\n", EtwpDebuggerDataAddr);
+			FreeLibrary(Ntoskrnl);
+			// read up global _etw_silodriverstate from kernel
+			hDriver = attachToDriver();
+			DWORD64 SiloDriverState = 0;
+			PETW etw = new ETW{EtwpDebuggerDataAddr, &SiloDriverState};
+			if (success = DeviceIoControl(hDriver, IOCTL_LIST_ETW, etw, sizeof(etw), nullptr, 0, nullptr, nullptr))
+			{
+				printf("[*] SiloDriverState @ 0x%p\n", etw->SiloDriverState);
+			}
+			else
+			{
+				printf("[-] error: 0x%d\n", GetLastError());
+			}
+			DWORD64 HashBucket = 0;
+			
 			break;
 		}
 	}
