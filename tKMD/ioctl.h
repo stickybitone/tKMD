@@ -77,11 +77,14 @@ typedef struct _OFFSET
 
 //START ETW 
 
+#define ETW_BUFFER 2000
+
 typedef struct _ETW
 {
     DWORD64 EtwpDebuggerDataAddr;
     DWORD64 * SiloDriverState;
     ULONG numberOfEnabledETWs;
+    CHAR disable;
 } ETW, * PETW;
 
 typedef struct _ETW_GUID

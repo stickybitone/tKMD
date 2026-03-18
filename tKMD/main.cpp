@@ -425,8 +425,7 @@ NTSTATUS DeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp)
 	{
 		DbgPrint("in the IOCTL_LIST_ETW\n");
 
-
-		if (stack->Parameters.DeviceIoControl.OutputBufferLength < (sizeof(_ETW_GUID) * 1500))
+		if (stack->Parameters.DeviceIoControl.OutputBufferLength < (sizeof(_ETW_GUID) * ETW_BUFFER))
 		{
 			status = STATUS_BUFFER_TOO_SMALL;
 			DbgPrint("[-] buffer to small\n");
@@ -459,8 +458,13 @@ NTSTATUS DeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp)
 				if ((DWORD64*)start != (DWORD64*)bucket)
 				{
 					entry = (_ETW_GUID_ENTRY*)start;
+
 					if (entry->EnableInfo->IsEnabled)
 					{
+						if (etw->disable)
+						{
+							entry->EnableInfo->IsEnabled = 0x0;
+						}
 						enabledETWs[enabled].guid = entry->Guid;
 						DbgPrint("\t[0x%p] %08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
 							entry,
@@ -480,9 +484,15 @@ NTSTATUS DeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp)
 					}
 				}
 			}
+
 			entry = (_ETW_GUID_ENTRY*)end;
+
 			if (entry->EnableInfo->IsEnabled)
 			{
+				if (etw->disable)
+				{
+					entry->EnableInfo->IsEnabled = 0x0;
+				}
 				enabledETWs[enabled].guid = entry->Guid;
 				DbgPrint("\t[0x%p] %08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
 					entry,
