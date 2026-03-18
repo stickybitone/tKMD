@@ -425,20 +425,84 @@ NTSTATUS DeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp)
 	{
 		DbgPrint("in the IOCTL_LIST_ETW\n");
 
+
+		if (stack->Parameters.DeviceIoControl.OutputBufferLength < (sizeof(_ETW_GUID) * 1500))
+		{
+			status = STATUS_BUFFER_TOO_SMALL;
+			DbgPrint("[-] buffer to small\n");
+			break;
+		}
+
+		PETW_GUID enabledETWs = (PETW_GUID)Irp->UserBuffer;
 		PETW etw = (PETW)stack->Parameters.DeviceIoControl.Type3InputBuffer;
 		etw->SiloDriverState = (DWORD64*)((UCHAR*)etw->EtwpDebuggerDataAddr + 0x18);
 		DbgPrint("retrieved SiloDriverState Address: 0x%p\n", etw->SiloDriverState);
 		DWORD64 * etwHashBucket = (DWORD64*)((UCHAR*)*etw->SiloDriverState + 0x2d0);
 		DbgPrint("retrieved ETW_HASH_BUCKET init address: 0x%p\n", etwHashBucket);
-		//retrieve ETW_HASH_BUCKETs
+		//retrieve ETW_HASH_BUCKET and _ETW_GUID_ENTRY
 		//todo: no hardcoded offsets 
 		//_ETW_HASH_TABLE 0x2d0 offset for Build 10.0.26200
 		_ETW_HASH_BUCKET * bucket;
+		_LIST_ENTRY* start;
+		_LIST_ENTRY* end;
+		_ETW_GUID_ENTRY* entry;
+		int enabled = 0;
 		for (int i = 0; i < 64; i++)
 		{
+			//__debugbreak();
 			bucket = (_ETW_HASH_BUCKET*)((UCHAR*)etwHashBucket + (i * sizeof(_ETW_HASH_BUCKET))); 
-			DbgPrint("[+] bucket [%d] @ 0x%p -> Flink @ 0x%p\n", i, bucket, bucket->ListHead->Flink);
+			start = bucket->ListHead->Flink;
+			end = bucket->ListHead->Blink;
+			DbgPrint("[+] bucket [%d] @ 0x%p -> Flink @ 0x%p Blink @ 0x%p\n", i, bucket, start, end);
+			for (; start != end; start = start->Flink)
+			{
+				if ((DWORD64*)start != (DWORD64*)bucket)
+				{
+					entry = (_ETW_GUID_ENTRY*)start;
+					if (entry->EnableInfo->IsEnabled)
+					{
+						enabledETWs[enabled].guid = entry->Guid;
+						DbgPrint("\t[0x%p] %08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+							entry,
+							entry->Guid.Data1,
+							entry->Guid.Data2,
+							entry->Guid.Data3,
+							entry->Guid.Data4[0],
+							entry->Guid.Data4[1],
+							entry->Guid.Data4[2],
+							entry->Guid.Data4[3],
+							entry->Guid.Data4[4],
+							entry->Guid.Data4[5],
+							entry->Guid.Data4[6],
+							entry->Guid.Data4[7]);
+						length += sizeof(_ETW_GUID);
+						enabled++;
+					}
+				}
+			}
+			entry = (_ETW_GUID_ENTRY*)end;
+			if (entry->EnableInfo->IsEnabled)
+			{
+				enabledETWs[enabled].guid = entry->Guid;
+				DbgPrint("\t[0x%p] %08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+					entry,
+					entry->Guid.Data1,
+					entry->Guid.Data2,
+					entry->Guid.Data3,
+					entry->Guid.Data4[0],
+					entry->Guid.Data4[1],
+					entry->Guid.Data4[2],
+					entry->Guid.Data4[3],
+					entry->Guid.Data4[4],
+					entry->Guid.Data4[5],
+					entry->Guid.Data4[6],
+					entry->Guid.Data4[7]);
+				length += sizeof(_ETW_GUID);
+				enabled++;
+			}
 		}
+		DbgPrint("enabled: %d\n", enabled);
+		etw->numberOfEnabledETWs = enabled;
 		break;
 	}
 	default:

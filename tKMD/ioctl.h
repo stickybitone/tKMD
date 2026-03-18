@@ -81,8 +81,13 @@ typedef struct _ETW
 {
     DWORD64 EtwpDebuggerDataAddr;
     DWORD64 * SiloDriverState;
+    ULONG numberOfEnabledETWs;
 } ETW, * PETW;
 
+typedef struct _ETW_GUID
+{
+    _GUID guid;
+} ETW_GUID, * PETW_GUID;
 
 struct _EX_PUSH_LOCK
 {

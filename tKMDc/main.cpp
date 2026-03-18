@@ -272,9 +272,27 @@ int main(int argc, char * argv[])
 			hDriver = attachToDriver();
 			DWORD64 SiloDriverState = 0;
 			PETW etw = new ETW{EtwpDebuggerDataAddr, &SiloDriverState};
-			if (success = DeviceIoControl(hDriver, IOCTL_LIST_ETW, etw, sizeof(etw), nullptr, 0, nullptr, nullptr))
+			ETW_GUID guids[1500];
+
+			if (success = DeviceIoControl(hDriver, IOCTL_LIST_ETW, etw, sizeof(guids), &guids, sizeof(guids), nullptr, nullptr))
 			{
-				printf("[*] SiloDriverState @ 0x%p\n", etw->SiloDriverState);
+				printf("number of enabled ETWs: %d\n", etw->numberOfEnabledETWs);
+				printf("enabled GUIDs:\n");
+				for (int i = 0; i < etw->numberOfEnabledETWs; i++)
+				{
+					printf("\t%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
+						guids[i].guid.Data1,
+						guids[1].guid.Data2,
+						guids[i].guid.Data3,
+						guids[i].guid.Data4[0],
+						guids[i].guid.Data4[1],
+						guids[i].guid.Data4[2],
+						guids[i].guid.Data4[3],
+						guids[i].guid.Data4[4],
+						guids[i].guid.Data4[5],
+						guids[i].guid.Data4[6],
+						guids[i].guid.Data4[7]);
+				}
 			}
 			else
 			{
