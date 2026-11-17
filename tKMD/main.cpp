@@ -601,6 +601,12 @@ RTL_OSVERSIONINFOW GetWindowsVersion(void)
 	return osInfo;
 }
 
+/*
+	_EPROCESS _Protection: PS_PROTECTION_OFFSET
+	PsSetCreateProcessNotifyRoutine: PROCESS_NOTIFY_OFFSET
+	PsSetCreateThreadNotifyRoutine: THREAD_NOTIFY_OFFSET
+	PsSetLoadImageNotifyRoutine: IMAGE_NOTIFY_OFFSET
+*/
 OFFSET SetOffsetsBasedOnWindowsVersion(void)
 {
 	RTL_OSVERSIONINFOW osInfo = GetWindowsVersion();
@@ -625,6 +631,13 @@ OFFSET SetOffsetsBasedOnWindowsVersion(void)
 		offset.IMAGE_NOTIFY_OFFSET = 0x004f0910;
 		offset.THREAD_NOTIFY_OFFSET = 0x004f0af0;
 		offset.PS_PROTECTION_OFFSET = 0x87a;
+	}
+	else if (osInfo.dwMajorVersion == 10 && osInfo.dwMinorVersion == 0 && osInfo.dwBuildNumber == 26200)
+	{
+		offset.PROCESS_NOTIFY_OFFSET = 0x00f060e0;
+		offset.IMAGE_NOTIFY_OFFSET = 0x00792380;
+		offset.THREAD_NOTIFY_OFFSET = 0x00792300;
+		offset.PS_PROTECTION_OFFSET = 0x5fa;
 	}
 	else 
 	{
